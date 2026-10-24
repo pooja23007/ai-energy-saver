@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AI Energy Saver for Smart Homes</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f6f4; margin: 0; padding: 20px; color: #222; }
+    h1 { color: #1b7f4b; text-align: center; margin-bottom: 4px; }
+    .sub { text-align: center; color: #555; margin-bottom: 20px; }
+    .top { text-align: center; margin-bottom: 20px; }
+    input, button { padding: 8px 12px; font-size: 16px; }
+    button { background: #1b7f4b; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    .cards { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
+    .card { background: white; padding: 15px 22px; border-radius: 10px; text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1); min-width: 150px; }
+    .card h2 { margin: 6px 0 0; color: #1b7f4b; }
+    .card p { margin: 0; color: #555; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 20px; max-width: 1100px; margin: 20px auto; }
+    .box { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .wide { max-width: 1100px; margin: 20px auto; }
+    .tip { background: white; border-left: 5px solid #1b7f4b; padding: 10px 15px;
+           border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .tip b { display: block; }
+    .tip small { color: #555; }
+    .save { float: right; background: #eaf7ef; color: #1b7f4b; padding: 3px 10px;
+            border-radius: 12px; font-weight: bold; font-size: 14px; }
+    .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+    .how div { background: #eaf7ef; padding: 12px 15px; border-radius: 10px; font-size: 14px; }
+    .foot { text-align: center; color: #666; font-size: 13px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <h1>⚡ AI Energy Saver for Smart Homes</h1>
+  <div class="sub">Smart-plug analytics + ML forecasting + AI recommendations</div>
+
+  <div class="top">
+    Electricity rate (₹ per unit):
+    <input type="number" id="rate" value="8" step="0.5" min="1">
+    <button onclick="load()">Update Dashboard</button>
+  </div>
+
+  <div class="cards">
+    <div class="card"><p>Tomorrow's forecast</p><h2 id="c1">-</h2></div>
+    <div class="card"><p>Tomorrow's cost</p><h2 id="c2">-</h2></div>
+    <div class="card"><p>Estimated monthly bill</p><h2 id="c3">-</h2></div>
+    <div class="card"><p>Possible saving / month</p><h2 id="c4">-</h2></div>
+    <div class="card"><p>Model error (MAE)</p><h2 id="c5">-</h2></div>
+  </div>
+
+  <div class="grid">
+    <div class="box"><canvas id="forecastChart"></canvas></div>
+    <div class="box"><canvas id="applianceChart"></canvas></div>
+    <div class="box"><canvas id="wasteChart"></canvas></div>
+  </div>
+
+  <div class="wide">
+    <h3>🤖 AI Recommendations</h3>
+    <div id="tips"></div>
+  </div>
+
+  <div class="wide">
+    <h3>How this system works</h3>
+    <div class="how">
+      <div><b>1. IoT analytics</b><br>Reads smart-plug readings for each appliance and finds power used while nobody is home.</div>
+      <div><b>2. ML forecasting</b><br>A Random Forest learns usage patterns and predicts the next 24 hours.</div>
+      <div><b>3. AI recommendations</b><br>Combines the waste found and the forecast to tell the user what to change and how much they save.</div>
+    </div>
+  </div>
+
+  <div class="foot">Prototype using simulated smart-plug data (software-only project).</div>
+
+  <script>
+    const charts = {};
+    function draw(id, config) {
+      if (charts[id]) charts[id].destroy();
+      charts[id] = new Chart(document.getElementById(id), config);
+    }
+
+    async function load() {
+      const rate = document.getElementById("rate").value || 8;
+      const res = await fetch("/api/dashboard?rate=" + rate);
+      const d = await res.json();
+
+      document.getElementById("c1").innerText = d.tomorrow_kwh + " kWh";
+      document.getElementById("c2").innerText = "₹" + d.tomorrow_cost;
+      document.getElementById("c3").innerText = "₹" + d.monthly_bill;
+      document.getElementById("c4").innerText = "₹" + d.total_saving;
+      document.getElementById("c5").innerText = d.mae + " kWh";
+
+      const hours = d.forecast.map(f => f.hour + ":00");
+      draw("forecastChart", {
+        type: "line",
+        data: { labels: hours, datasets: [
+          { label: "Tomorrow's forecast (kWh)", data: d.forecast.map(f => f.usage),
+            borderColor: "#d9534f", tension: 0.3 },
+          { label: "Average day (kWh)", data: d.hourly_pattern,
+            borderColor: "#1b7f4b", borderDash: [5, 5], tension: 0.3 }
+        ]},
+        options: { plugins: { title: { display: true, text: "ML Forecast: Hourly Usage" } } }
+      });
+
+      draw("applianceChart", {
+        type: "doughnut",
+        data: { labels: Object.keys(d.appliances), datasets: [{
+          data: Object.values(d.appliances),
+          backgroundColor: ["#1b7f4b","#3498db","#f39c12","#9b59b6","#e74c3c","#95a5a6"] }]},
+        options: { plugins: { title: { display: true, text: "Usage by Appliance (kWh/day)" } } }
+      });
+
+      draw("wasteChart", {
+        type: "bar",
+        data: { labels: d.waste.map(w => w.appliance), datasets: [{
+          label: "Wasted money (₹/month)", data: d.waste.map(w => w.monthly_cost),
+          backgroundColor: "#e74c3c" }]},
+        options: { plugins: { title: { display: true, text: "Waste While Nobody Is Home" } } }
+      });
+
+      document.getElementById("tips").innerHTML = d.tips.map(t =>
+        `<div class="tip">${t.saving > 0 ? `<span class="save">Save ₹${t.saving}/month</span>` : ""}
+         <b>${t.title}</b><small>${t.detail}</small></div>`).join("");
+    }
+    load();
+  </script>
+</body>
+</html>
