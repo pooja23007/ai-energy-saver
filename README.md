@@ -40,4 +40,4 @@ Python, Flask, Pandas, scikit-learn, Chart.js, HTML/CSS/JavaScript
 This is a software-only prototype. Smart-plug readings are simulated, and recommendation savings are estimates. With real IoT devices, only the data source would change.
 
 ## Live Demo
-(Add your Render link here after deployment)
+https://ai-energy-saver.onrender.com/
